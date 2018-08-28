@@ -8,198 +8,71 @@
                 border: 1px black solid;
             }
         </style>
+        <script src='utils.js'></script>
+        <script src='game.js'></script>
+        <script src='paddle.js'></script>
+        <script src='ball.js'></script>
+        <script src='block.js'></script>
+        <script src='level.js'></script>
     </head>
     <body>
         <canvas id="id-canvas" width="400" height="300"></canvas>
-
+        <hr>
+        <input id="id-input-speed" type="range" value="1">
 
 <script type="text/javascript">
 
-let log = console.log.bind(console);
-
-let imageFromPath = function(path){
-    let img = new Image();
-    img.src = path;
-    return img;
+let loadLevel = function(n){
+    n = n - 1;
+    let level = levels[n];
+    let blocks = [];
+    for (let  i = 0; i < level.length; i++) {
+        let p = level[i];
+        let b = Block(p);
+        blocks.push(b);
+    }
+    return blocks;
 }
 
-let Paddle = function(){
-    let image = imageFromPath('paddle.png');
-    let o = {
-        image: image,
-        x: 100,
-        y: 250,
-        speed: 7,
-        width: 150,
-        height: 30,
+let blocks = [];
+let enableDebugMode = function(enable){
+    if(!enable){
+        return
     }
-
-    o.move = function(x){
-        if(x < 0){
-            x = 0;
-        }
-        if( x > 400 - o.width){
-            x = 400 - o.width;
-        }
-        o.x = x;
-    }
-
-    o.moveLeft = function(){
-        o.move(o.x - o.speed);
-    }
-
-    o.moveRight = function(){
-        o.move(o.x + o.speed);
-    }
-
-    o.collide = function(ball){
-        if(ball.y + ball.height > o.y){
-            if(ball.x > o.x && ball.x < o.x + o.width){
-                //log('相撞');
-                return true;
-            }
-        }
-        return false;
-    }
-
-    return o;
-}
-
-let Ball = function(){
-    let image = imageFromPath('ball.png');
-    let o = {
-        image: image,
-        x: 100,
-        y: 225,
-        speedX: 10,
-        speedY: -10,
-        width: 25,
-        height: 25,
-        fired: false,
-    }
-
-    o.fire = function(){
-        o.fired = true;
-    }
-
-    o.move = function(){
-        if(o.fired){
-            //log('move');
-            if(o.x < 0 || o.x > 400){
-                o.speedX = -o.speedX;
-            }
-            if(o.y < 0 || o.y > 300){
-                o.speedY = -o.speedY;
-            }
-            //moveLeft
-            o.x += o.speedX;
-            o.y += o.speedY;
-        }
-    }
-
-    o.reverse = function(){
-        o.speedY *= -1;
-    }
-
-    return o;
-}
-
-let Block = function(){
-    let image = imageFromPath('block.png');
-    let o = {
-        image: image,
-        x: 100,
-        y: 100,
-        width: 50,
-        height: 20,
-        alive: true,
-    }
-
-    o.killed = function(){
-        o.alive = false;
-    }
-
-    o.collide = function(ball){
-        return o.alive && (rectIntersects(o, ball) || rectIntersects(ball, o));
-    }
-    return o;
-}
-
-let Game = function(){
-    let g = {
-        actions: {},
-        keydowns: {},
-    };
-    let canvas = document.querySelector('#id-canvas');
-    let context = canvas.getContext('2d');
-    g.canvas = canvas;
-    g.context = context;
-
-    // draw
-    g.drawImage = function(gameImage){
-        g.context.drawImage(gameImage.image, gameImage.x, gameImage.y, gameImage.width, gameImage.height);
-    }
-
-    // events
+    window.paused = false;
     window.addEventListener('keydown', function(event){
-        g.keydowns[event.key] = true;
-    });
-    window.addEventListener('keyup', function(event){
-        g.keydowns[event.key] = false;
-    });
-    //
-    g.registerAction = function(key, callback){
-        g.actions[key] = callback;
-    }
-    // timer
-    setInterval(function(){
-        // events
-        let actions = Object.keys(g.actions);
-        for (let i = 0; i < actions.length; i++){
-            let key = actions[i];
-            if(g.keydowns[key]){
-                // 如果按键被按下，调用注册的 action
-                g.actions[key]();
-            }
+        let k = event.key;
+        if(k == 'p'){
+            // 暂停功能
+            window.paused = !window.paused;
+        } else if ('1234567'.includes(k)) {
+            // 为了 debug 临时加的载入关卡功能
+            blocks = loadLevel(Number(k));
         }
-        // update
-        g.update();
-        // clear
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        // draw
-        g.draw();
-    }, 1000/30);
-
-    return g;
-}
-
-let rectIntersects = function(a, b){
-    if(b.y > a.y && b.y < a.y + b.height){
-        if(b.x > a.x && b.x < a.x + a.width){
-            //log('相撞');
-            return true;
-        }
-    return false;
-    }
+    });
+    // 控制速度
+    document.querySelector('#id-input-speed').addEventListener('input',function(event){
+        let input = event.target;
+        window.fps = Number(input.value);
+    });
 }
 
 let __main = function(){
-    let game = Game();
+
+    enableDebugMode(true);
+
+
+    let game = Game(30);
 
     let paddle = Paddle();
     let ball = Ball();
 
-    let blocks= [];
-    for (let i = 0; i < 7; i++) {
-        let b = Block();
-        // 设置blocks 坐标
-        b.x = i * 51;
-        b.y = 50;
-        blocks.push(b);
-    }
+    blocks= loadLevel(1);
 
     let leftDown = false;
     let rightDown = false;
+
+    let paused = false;
 
     game.registerAction('a', function(){
         paddle.moveLeft();
@@ -211,8 +84,10 @@ let __main = function(){
         ball.fire();
     });
 
-
     game.update = function(){
+        if(window.paused) {
+            return;
+        }
         ball.move();
         // 判断相撞
         if (paddle.collide(ball)){
